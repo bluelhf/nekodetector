@@ -1,11 +1,9 @@
 plugins {
     id "java"
-    id("com.github.johnrengelman.shadow") version "8.1.1"    
+    id("org.panteleyev.jpackageplugin") version "1.5.2"
 }
 group 'me.cortex'
 version '1.0-SNAPSHOT'
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
 
 repositories {
     mavenCentral()
@@ -20,23 +18,69 @@ test {
     useJUnitPlatform()
 }
 
-
-tasks.shadowJar {
-    archiveClassifier.set("")
-    manifest {
-        attributes "Main-Class": "me.cortex.jarscanner.Main"
-    }
-}
-tasks.build {
-    dependsOn(shadowJar)
-    if (project.hasProperty("overrideVersion")) {
-        project.setVersion(overrideVersion)
-        println "Overrided project version to: " + version
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
-jar {
-    manifest {
-        attributes 'Main-Class': 'me.cortex.jarscanner.Main'
+tasks.register("copyDependencies", Copy.class) {
+    from(configurations.runtimeClasspath).into("$buildDir/jars")
+}
+
+tasks.register("copyJar", Copy.class) {
+    from(tasks.jar).into("$buildDir/jars")
+}
+
+tasks.jpackage {
+    dependsOn("build", "copyDependencies", "copyJar")
+
+    input = "$buildDir/jars"
+    destination = "$buildDir/dist"
+
+    appName = "Neko Detector"
+    aboutUrl = "https://github.com/MCRcortex/nekodetector"
+    appDescription = "A tool to help detect if you are infected by the fractureiser malware."
+
+    licenseFile = "LICENSE"
+
+    vendor = "me.cortex"
+
+    mainJar = tasks.jar.archiveFileName.get()
+    mainClass = "me.cortex.jarscanner.Main"
+
+    javaOptions = ["-Dfile.encoding=UTF-8"]
+
+    addModules = ["java.base", "java.desktop"]
+
+    JLinkOptions = [
+            "--strip-native-commands",
+            "--strip-debug",
+            "--no-man-pages",
+            "--no-header-files",
+            "--compress=2",
+    ]
+
+
+    windows {
+        winConsole = true
+        winPerUserInstall = true
+        winHelpUrl = "https://github.com/MCRcortex/nekodetector"
+        winShortcut = true
+        winShortcutPrompt = true
+        winMenu = true
+
+        winUpdateUrl = "https://github.com/MCRcortex/nekodetector/releases"
+    }
+
+    mac {
+        macAppCategory = "public.app-category.utilities"
+        macPackageIdentifier = "me.cortex.nekodetector"
+    }
+
+    linux {
+        linuxAppCategory = "Utility"
+        linuxMenuGroup = "Utility;Anti-Malware;Security;"
+        linuxShortcut = true
     }
 }
